@@ -12,6 +12,7 @@ const ZELENA_START = { x: 40, y: 40, vx: 260, vy: 90 };
 const ZLUTA_BELT_THICKNESS = 20;
 const ZLUTA_ARC_HEIGHT = 96;
 const ZLUTA_BELT_STRIPE_SPACING = 28;
+const SEDA_SPEED = 145;
 
 const stageMetrics = {
   width: window.innerWidth,
@@ -77,6 +78,19 @@ const BALLS = {
     noRoll: true,
     usesBelt: true,
     motionAnswer: { path: "křivočarý", speed: "rovnoměrný" },
+  },
+  seda: {
+    id: "seda",
+    label: "šedá",
+    asset: "assets/seda.svg",
+    motion2D: sedaPohyb,
+    noRoll: true,
+    usesRandomMotion: true,
+    get motionAnswer() {
+      return sedaMode
+        ? { path: sedaMode.path, speed: sedaMode.speed }
+        : { path: "", speed: "" };
+    },
   },
 };
 
@@ -222,6 +236,87 @@ function zlutaBeltArcLengthToX(targetX) {
   return length;
 }
 
+let sedaMode = null;
+
+function randomSedaMode() {
+  const straight = Math.random() < 0.5;
+  const uniform = Math.random() < 0.5;
+
+  return {
+    path: straight ? "přímočarý" : "křivočarý",
+    speed: uniform ? "rovnoměrný" : "nerovnoměrný",
+    key: `${straight ? "s" : "c"}_${uniform ? "u" : "n"}`,
+  };
+}
+
+function resetSedaMode() {
+  sedaMode = randomSedaMode();
+}
+
+function sedaPohyb(elapsed) {
+  if (!sedaMode) resetSedaMode();
+
+  const width = stageMetrics.width;
+  const height = stageMetrics.height;
+  const floor = stageMetrics.groundY;
+
+  switch (sedaMode.key) {
+    case "s_u": {
+      const x0 = -BALL_R;
+      const y0 = height * 0.74;
+      const x1 = width + BALL_R;
+      const y1 = height * 0.26;
+      const length = Math.hypot(x1 - x0, y1 - y0);
+      const traveled = (elapsed * SEDA_SPEED) % length;
+
+      return {
+        x: x0 + ((x1 - x0) / length) * traveled,
+        y: y0 + ((y1 - y0) / length) * traveled,
+        speed: SEDA_SPEED,
+      };
+    }
+    case "s_n": {
+      const duration = 2.6;
+      const phase = (elapsed % duration) / duration;
+      const eased = easeInOutCubic(phase);
+      const xLeft = -BALL_R;
+      const xRight = width + BALL_R;
+      const y = height * 0.42;
+      const x = xLeft + eased * (xRight - xLeft);
+      const speed = Math.abs(
+        (xRight - xLeft) * easeInOutCubicDerivative(phase) / duration,
+      );
+
+      return { x, y, speed };
+    }
+    case "c_u": {
+      const cx = width / 2;
+      const cy = height * 0.44;
+      const radius = Math.min(width * 0.28, height * 0.24, 250);
+      const theta = (elapsed * SEDA_SPEED) / radius;
+      const x = cx + radius * Math.cos(theta);
+      const y = cy + radius * Math.sin(theta);
+
+      return { x, y, speed: SEDA_SPEED };
+    }
+    default: {
+      const duration = 4.2;
+      const phase = (elapsed % duration) / duration;
+      const eased = easeInOutCubic(phase);
+      const x = -BALL_R + eased * (width + 2 * BALL_R);
+      const amplitude = 72;
+      const waves = 2.4;
+      const y = floor - 36 + amplitude * Math.sin(waves * Math.PI * eased);
+      const easedDerivative = easeInOutCubicDerivative(phase) / duration;
+      const dx = (width + 2 * BALL_R) * easedDerivative;
+      const dy = amplitude * waves * Math.PI *
+        Math.cos(waves * Math.PI * eased) * easedDerivative;
+
+      return { x, y, speed: Math.hypot(dx, dy) };
+    }
+  }
+}
+
 function zlutaBeltOffsetAtBall(ballX) {
   const { width } = zlutaPasMetrics();
   const loopLength = stageMetrics.loopLength;
@@ -319,10 +414,15 @@ function updateStageSize() {
 }
 
 function updateTrackVisibility() {
-  const usesBelt = BALLS[activeBallId].usesBelt;
+  const ball = BALLS[activeBallId];
+  const usesBelt = ball.usesBelt;
+  const hideFloor = ball.usesRandomMotion;
 
   if (floorLine) {
-    floorLine.setAttribute("visibility", usesBelt ? "hidden" : "visible");
+    floorLine.setAttribute(
+      "visibility",
+      usesBelt || hideFloor ? "hidden" : "visible",
+    );
   }
 
   if (beltGroup) {
@@ -635,6 +735,13 @@ function buildQuiz() {
   });
 }
 
+let sedaChangeBtn = null;
+
+function updateSedaChangeBtn() {
+  if (!sedaChangeBtn) return;
+  sedaChangeBtn.classList.toggle("is-visible", activeBallId === "seda");
+}
+
 function buildPicker() {
   for (const ball of Object.values(BALLS)) {
     const label = document.createElement("label");
@@ -656,16 +763,42 @@ function buildPicker() {
     text.textContent = ball.label;
 
     label.append(input, preview, text);
-    picker.appendChild(label);
+
+    if (ball.id === "seda") {
+      const group = document.createElement("div");
+      group.className = "ball-option-group";
+
+      sedaChangeBtn = document.createElement("button");
+      sedaChangeBtn.type = "button";
+      sedaChangeBtn.className = "seda-change-btn";
+      sedaChangeBtn.setAttribute("aria-label", "Změnit pohyb");
+      sedaChangeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5a7.5 7.5 0 1 1-5.3 2.2"/><polyline points="7 3 12 4.5 10.5 9"/></svg>`;
+      sedaChangeBtn.addEventListener("click", () => {
+        resetSedaMode();
+        resetAnimation();
+        resetQuizSelects();
+      });
+
+      group.append(label, sedaChangeBtn);
+      picker.appendChild(group);
+    } else {
+      picker.appendChild(label);
+    }
 
     input.addEventListener("change", async () => {
       if (!input.checked || ball.id === activeBallId) return;
       activeBallId = ball.id;
+      if (ball.usesRandomMotion) {
+        resetSedaMode();
+      }
       await loadBallGraphic(activeBallId);
       resetAnimation();
       resetQuizSelects();
+      updateSedaChangeBtn();
     });
   }
+
+  updateSedaChangeBtn();
 }
 
 function tick(now) {

@@ -10,6 +10,7 @@ Interaktivní webová simulace různých druhů pohybu. Žák vybere kuličku, p
 | modrá | nerovnoměrný přímočarý (zrychlení a zpomalení, tryskový motor) |
 | zelená | nerovnoměrný křivočarý (odrazy od podložky) |
 | žlutá | rovnoměrný křivočarý (pás s obloukem) |
+| šedá | náhodný pohyb (přímočarý/křivočarý × rovnoměrný/nerovnoměrný) |
 
 ## Funkce
 

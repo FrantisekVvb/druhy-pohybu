@@ -1,6 +1,10 @@
 # Druhy pohybů
 
+[![CI](https://github.com/FrantisekVvb/druhy-pohybu/actions/workflows/ci.yml/badge.svg)](https://github.com/FrantisekVvb/druhy-pohybu/actions/workflows/ci.yml)
+
 Interaktivní webová simulace různých druhů pohybu. Žák vybere kuličku, pozoruje animaci a ověří, zda je pohyb přímočarý nebo křivočarý a rovnoměrný nebo nerovnoměrný.
+
+**Online verze:** [frantisekvvvb.github.io/druhy-pohybu](https://frantisekvvvb.github.io/druhy-pohybu/)
 
 ## Kuličky
 
